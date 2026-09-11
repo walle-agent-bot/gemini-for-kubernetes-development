@@ -4,6 +4,33 @@ name: checklist-for-kind
 schedule: never
 mode: workflow
 cooldown: 2h
+preconditionScript: |
+  if [ -z "$RELATED_ISSUES" ]; then
+    echo "No related issues/PRs found."
+    exit 0
+  fi
+
+  # Split by comma
+  IFS=',' read -ra ADDR <<< "$RELATED_ISSUES"
+  for num in "${ADDR[@]}"; do
+    num=$(echo "$num" | tr -d '[:space:]')
+    if [ -z "$num" ]; then
+      continue
+    fi
+    if [ "$num" = "10588" ]; then
+      echo "Excluding issue #10588 from check."
+      continue
+    fi
+    echo "Checking status of related issue/PR #$num..."
+    STATE=$(gh issue view "$num" --repo GoogleCloudPlatform/k8s-config-connector --json state --jq .state 2>/dev/null || echo "OPEN")
+    echo "Issue/PR #$num state: $STATE"
+    if [ "$STATE" = "OPEN" ]; then
+      echo "Related issue/PR #$num is still OPEN. Precondition check failed."
+      exit 1
+    fi
+  done
+
+  echo "All related issues/PRs are closed."
 ---
 
 # Checklist for KCC Resource Kind Migration
